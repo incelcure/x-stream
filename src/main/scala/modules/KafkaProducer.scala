@@ -8,8 +8,8 @@ import cats.implicits._
 trait KafkaProducer[F[_]] { def send(post: XPost): F[Unit] }
 
 final class KafkaProducerImpl[F[_]: Async](
-                                            cfg: ProducerSettings[F, String, String]
-                                          ) extends KafkaProducer[F] {
+  cfg: ProducerSettings[F, String, String]
+) extends KafkaProducer[F] {
 
   private val producerR = KafkaProducer.resource(cfg)
 
@@ -17,7 +17,7 @@ final class KafkaProducerImpl[F[_]: Async](
     producerR.use { producer =>
       for {
         fMeta <- producer.produceOne(ProducerRecord("x-stream-data", null, post.text))
-        _ <- fMeta.void
+        _     <- fMeta.void
       } yield ()
     }
   }

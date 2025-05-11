@@ -1,6 +1,5 @@
 package app
 
-
 import cats.effect._
 import tofu.logging._
 import modules._
@@ -16,11 +15,13 @@ object XStreamApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
     val program: Resource[IO, AppEnv[IO]] = for {
       logger <- Resource.eval(Logs.sync[IO, IO].byName("x-stream"))
-      backend  = AsyncHttpClientFs2Backend.resource[IO]()
-      xClient  =  new XClientImpl[IO](sys.env("X_BEARER"), backend)
+      backend = AsyncHttpClientFs2Backend.resource[IO]()
+      xClient = new XClientImpl[IO](sys.env("X_BEARER"), backend)
       producer <- Resource.pure(
-        new KafkaProducerImpl[IO](ProducerSettings[IO, String, String]
-          .withBootstrapServers("localhost:29092"))
+        new KafkaProducerImpl[IO](
+          ProducerSettings[IO, String, String]
+            .withBootstrapServers("localhost:29092")
+        )
       )
       service <- Resource.pure(new XStreamServiceImpl[IO](logger, xClient, producer))
     } yield AppEnv(service, logger)

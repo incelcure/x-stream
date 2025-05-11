@@ -1,14 +1,14 @@
 package clients
 
 import cats.effect.{Async, Resource}
-import cats.implicits.toFunctorOps
 import fs2.Stream
-import io.circe.{parser, Json}
+import fs2.text
+import io.circe.parser
+import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3._
-import sttp.client3.circe._
 import sttp.model.Uri
 import domain.XPost
-import sttp.capabilities.fs2.Fs2Streams
+import sttp.capabilities._
 
 trait XClient[F[_]] {
   def streamTweets: Stream[F, XPost]
@@ -19,30 +19,41 @@ final class XClientImpl[F[_]: Async](
   backendR: Resource[F, SttpBackend[F, Fs2Streams[F]]]
 ) extends XClient[F] {
 
-  private val endpoint: Uri =
-    uri"https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id"
+  private val baseUri: String = sys.env.getOrElse("X_BASE_URI", "localhost:1080")
 
-  private val request =
+  private val endpoint: Uri =
+    uri"http://$baseUri/2/tweets/search/stream?tweet.fields=text&expansions=author_id"
+
+  private val request: Request[Either[String, Stream[F, Byte]], Fs2Streams[F]] = // Важно!
     basicRequest
       .get(endpoint)
       .header("Authorization", s"Bearer $bearer")
-      .response(
-        asStreamUnsafe(Fs2Streams[F])
-          .map(bytes => parser.parse(bytes.toString).toOption)
-      )
+      .response(asStreamUnsafe(Fs2Streams[F]))
 
   override def streamTweets: Stream[F, XPost] =
-    for {
-      backend  <- Stream.resource(backendR)
-      response <- Stream.eval(request.send(backend))
-      json <- response.body match {
-        case Some(j) => Stream.emit(j)
-        case None    => Stream.empty
-      }
-      post <- json.hcursor.downField("data").get[String]("text") match {
-        case Right(text) => Stream.emit(XPost(text))
-        case Left(_)     => Stream.empty
-      }
-    } yield post
+    Stream.resource(backendR).flatMap { backend =>
+      Stream.eval(request.send(backend)).flatMap { response =>
+        response.body match {
+          case Left(error) =>
+            Stream.raiseError[F](new Exception(s"Stream error: $error"))
 
+          case Right(bytesStream) =>
+            bytesStream
+              .through(text.utf8.decode)
+              .through(text.lines)
+              .evalMap { line =>
+                Async[F].fromEither(
+                  parser
+                    .parse(line)
+                    .flatMap(_.hcursor.downField("data").get[String]("text")) // Извлекаем текст
+                    .map(XPost)
+                )
+              }
+              .handleErrorWith { e =>
+                Stream.eval(Async[F].delay(println(s"Error processing tweet: ${e.getMessage}"))) >>
+                Stream.empty
+              }
+        }
+      }
+    }
 }

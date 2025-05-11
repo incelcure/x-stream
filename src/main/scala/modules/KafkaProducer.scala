@@ -16,7 +16,7 @@ final class KafkaProducerImpl[F[_]: Async](
   override def send(post: XPost): F[Unit] = {
     producerR.use { producer =>
       for {
-        fMeta <- producer.produceOne(ProducerRecord("x-stream-data", null, post.text))
+        fMeta <- producer.produceOne(ProducerRecord("x-stream-data", "", post.text))
         _     <- fMeta.void
       } yield ()
     }

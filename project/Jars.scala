@@ -11,8 +11,10 @@ object Jars {
     object client3 {
       val version = "3.9.1"
 
-      val core  = "com.softwaremill.sttp.client3" %% "core"                           % version
-      val async = "com.softwaremill.sttp.client3" %% "async-http-client-backend-cats" % version
+      val core  = "com.softwaremill.sttp.client3"      %% "core"                           % version
+      val async = "com.softwaremill.sttp.client3"      %% "async-http-client-backend-cats" % version
+      val asyncFs2 =   "com.softwaremill.sttp.client3" %% "async-http-client-backend-fs2"  % version
+      val circe = "com.softwaremill.sttp.client3"      %% "circe"                          % version
     }
   }
 

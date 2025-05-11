@@ -9,6 +9,8 @@ object Deps {
         cats.effect,
         sttp.client3.core,
         sttp.client3.async,
+        sttp.client3.asyncFs2,
+        sttp.client3.circe,
         circe.core,
         circe.generic,
         circe.parser,
